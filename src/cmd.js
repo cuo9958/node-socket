@@ -9,7 +9,8 @@ const progress = {
         },
         decode: function(str) {
             return JSON.parse(str);
-        }
+        },
+        encoding: 'utf8'
     }
 };
 

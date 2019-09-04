@@ -1,52 +1,46 @@
+/**
+ * 客户端调用方法
+ */
 const net = require('net');
+const cmd = require('./cmd');
 
-function createClient(socket) {
-    return {
-        socket,
-        uid: '',
-        send: function(...args) {
-            socket.write(cmd.push(...args));
-        }
-    };
+class TcpClient {
+    constructor(port, type = 'json') {
+        const socket = net.connect(port);
+        this.socket = socket;
+        this.cmd = cmd.get(type);
+        socket.setEncoding(this.cmd.encoding);
+        socket.on('connect', this.onConnect.bind(this));
+        socket.on('data', data => this.onMessage(this.cmd.decode(data)));
+        socket.on('close', this.onClosed.bind(this));
+        socket.on('error', this.onError.bind(this));
+        socket.on('timeout', this.onTimeOut.bind(this));
+    }
+
+    onConnect() {
+        console.log('已连接');
+    }
+    onMessage(data) {
+        console.log('消息', data);
+    }
+    onClosed(had_err) {
+        console.log('关闭', had_err);
+    }
+    onError(err) {
+        console.log('错误', err);
+    }
+    onTimeOut() {
+        console.log('超时');
+    }
+
+    send(command, data) {
+        this.socket.write(this.cmd.encode(command, data));
+    }
 }
 
-const def = {
-    port: 8080,
-    timeout: 1000,
-    token: '123456'
+module.exports = {
+    factoryTcpClient: function(port) {
+        return new TcpClient(port);
+    },
+    TcpClient
 };
-
-function createClient(opts) {
-    const socket = net.connect(opts.port);
-    socket.setEncoding('utf8');
-    socket.on('connect', function() {
-        console.log('connect');
-    });
-    socket.on('data', function(data) {
-        console.log('data', data);
-    });
-    //当写入缓冲区变为空时触发。可以用来做上传节流
-    socket.on('drain', function() {
-        console.log('drain');
-    });
-    socket.on('end', function() {
-        console.log('end');
-    });
-    socket.on('close', function(had_err) {
-        console.log('close', had_err);
-    });
-    socket.on('error', function(err) {
-        console.log('error', err);
-    });
-    //在找到主机之后创建连接之前触发。不可用于 Unix socket。
-    socket.on('lookup', function(err, address, family, host) {
-        console.log('lookup', err, address, family, host);
-    });
-    socket.on('timeout', function() {
-        console.log('timeout');
-    });
-}
-
-createClient({
-    port: 18000
-});

@@ -52,10 +52,10 @@ class TcpServer {
             send: (command, data) =>
                 socket.write(this.cmd.encode(command, data))
         };
-        socket.setEncoding('utf8');
+        socket.setEncoding(this.cmd.encoding);
         console.log('客户端连接', client.uid);
         this.clients.set(client.uid, client);
-        socket.on('data', this.onMessage.bind(this));
+        socket.on('data', data => this.onMessage(this.cmd.decode(data)));
         socket.on('close', () => this.onClientClose(client.uid));
         client.send('auth', client.uid);
     }
