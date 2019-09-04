@@ -10,6 +10,9 @@ class TcpClient {
         this.socket = socket;
         this.cmd = cmd.get(type);
         this.event = {};
+        this.retry = 5;
+        this.timer = null;
+        this.uid = '';
         socket.setEncoding(this.cmd.encoding);
         socket.on('connect', this.onConnect.bind(this));
         socket.on('data', data => this.onMessage(this.cmd.decode(data)));
@@ -19,10 +22,18 @@ class TcpClient {
     }
 
     onConnect() {
+        this.retry = 5;
         console.log('已连接');
     }
     onMessage(data) {
-        this.emit(data.command, data.data, data.time);
+        switch (data.command) {
+            case '_auth':
+                this._auth(data.data);
+                break;
+            default:
+                this.emit(data.command, data.data, data.time);
+                break;
+        }
     }
     onClosed(had_err) {
         console.log('关闭', had_err);
@@ -54,6 +65,16 @@ class TcpClient {
                 fn(data);
             });
         }
+    }
+
+    runHeartBeat() {
+        this.timer = setInterval(() => {
+            this.send('_heart', this.uid);
+        }, 1000);
+    }
+    _auth(uid) {
+        this.uid = uid;
+        this.runHeartBeat();
     }
 }
 
