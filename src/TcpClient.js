@@ -9,6 +9,7 @@ class TcpClient {
         const socket = net.connect(port);
         this.socket = socket;
         this.cmd = cmd.get(type);
+        this.event = {};
         socket.setEncoding(this.cmd.encoding);
         socket.on('connect', this.onConnect.bind(this));
         socket.on('data', data => this.onMessage(this.cmd.decode(data)));
@@ -21,7 +22,7 @@ class TcpClient {
         console.log('已连接');
     }
     onMessage(data) {
-        console.log('消息', data);
+        this.emit(data.command, data.data, data.time);
     }
     onClosed(had_err) {
         console.log('关闭', had_err);
@@ -35,6 +36,24 @@ class TcpClient {
 
     send(command, data) {
         this.socket.write(this.cmd.encode(command, data));
+    }
+
+    on(key, fn) {
+        if (!this.event[key]) this.event[key] = [];
+        this.event[key].push(fn);
+    }
+    off(key, fn) {
+        if (this.event[key]) {
+            this.event[key] = this.event[key].filter(item => item !== fn);
+        }
+    }
+    emit(key, data) {
+        const list = this.event[key];
+        if (list && list.constructor === Array) {
+            list.forEach(fn => {
+                fn(data);
+            });
+        }
     }
 }
 

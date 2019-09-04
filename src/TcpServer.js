@@ -12,6 +12,7 @@ class TcpServer {
         this.clients = new Map();
         this.cmd = cmd.get(type);
         this.count = 0;
+        this.event = {};
         server.on('listening', this.onListen.bind(this));
         server.on('error', this.onError.bind(this));
         server.on('close', this.onClose.bind(this));
@@ -37,8 +38,8 @@ class TcpServer {
             console.log('已连接客户端', this.count);
         });
     }
-    onMessage(str) {
-        console.log(str);
+    onMessage(data) {
+        this.emit(data.command, data.data, data.time);
     }
     onClientClose(uid) {
         console.log('客户端退出', uid);
@@ -75,6 +76,24 @@ class TcpServer {
         this.clients.forEach(client => {
             if (client.uid !== uid) client.send(command, data);
         });
+    }
+
+    on(key, fn) {
+        if (!this.event[key]) this.event[key] = [];
+        this.event[key].push(fn);
+    }
+    off(key, fn) {
+        if (this.event[key]) {
+            this.event[key] = this.event[key].filter(item => item !== fn);
+        }
+    }
+    emit(key, data) {
+        const list = this.event[key];
+        if (list && list.constructor === Array) {
+            list.forEach(fn => {
+                fn(data);
+            });
+        }
     }
 }
 
