@@ -1,0 +1,23 @@
+{
+  "name": "node-socket",
+  "version": "1.0.0",
+  "description": "使用nodejs开发的socket通讯",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cuo9958/node-socket.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cuo9958/node-socket/issues"
+  },
+  "homepage": "https://github.com/cuo9958/node-socket#readme",
+  "dependencies": {
+    "uuid": "^3.3.3"
+  }
+}
