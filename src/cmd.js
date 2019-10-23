@@ -8,7 +8,12 @@ const progress = {
             });
         },
         decode: function(str) {
-            return JSON.parse(str);
+            try {
+                return JSON.parse(str);
+            } catch (error) {
+                console.log(error, str);
+                return {};
+            }
         },
         encoding: 'utf8'
     }

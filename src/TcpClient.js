@@ -12,6 +12,7 @@ class TcpClient {
     constructor(port, type = 'json') {
         this.port = port;
         this.type = type;
+        this.retryCount = RETRY_COUNT;
         this.init();
     }
 
@@ -22,7 +23,6 @@ class TcpClient {
         this.event = {};
         this.timer = null;
         this.uid = '';
-        this.retryCount = RETRY_COUNT;
         socket.setEncoding(this.cmd.encoding);
         socket.on('connect', this.onConnect.bind(this));
         socket.on('data', data => this.onMessage(this.cmd.decode(data)));
@@ -31,9 +31,13 @@ class TcpClient {
         socket.on('timeout', this.onTimeOut.bind(this));
     }
     retry() {
-        console.log('重试', this, this.retryCount);
+        console.log('重试', this.retryCount);
         this.retryCount--;
+        this.socket.removeAllListeners();
+        this.socket.end();
         this.socket.destroy();
+        this.socket = null;
+        this.event = [];
         if (this.retryCount < 0) return;
         this.init();
     }
@@ -91,7 +95,12 @@ class TcpClient {
     }
 
     runHeartBeat() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
         this.timer = setInterval(() => {
+            console.log('发送一次心跳');
             this.send('_heart', this.uid);
         }, 1000);
     }

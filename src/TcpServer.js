@@ -18,6 +18,21 @@ class TcpServer {
         server.on('close', this.onClose.bind(this));
         server.on('connection', this.onConnection.bind(this));
         server.listen(port);
+        this.loopCheck();
+    }
+    /**
+     * 循环监听，超时的关闭
+     */
+    loopCheck() {
+        setInterval(() => {
+            const now = Date.now();
+            this.clients.forEach(client => {
+                if (now - client.date > 5000) {
+                    console.log('超时', client.uid);
+                    this.close(client.uid);
+                }
+            });
+        }, 5000);
     }
     //  server
     //  clients
@@ -81,15 +96,13 @@ class TcpServer {
         const client = {
             socket,
             uid: uuid.v4(),
-            send: (command, data) =>
-                socket.write(this.cmd.encode(command, data))
+            date: Date.now(),
+            send: (command, data) => socket.write(this.cmd.encode(command, data))
         };
         socket.setEncoding(this.cmd.encoding);
         console.log('客户端连接', client.uid);
         this.clients.set(client.uid, client);
-        socket.on('data', data =>
-            this.onMessage(this.cmd.decode(data), client.uid)
-        );
+        socket.on('data', data => this.onMessage(this.cmd.decode(data), client.uid));
         socket.on('close', () => this.onClientClose(client.uid));
         client.send('_auth', client.uid);
     }
@@ -176,6 +189,8 @@ class TcpServer {
     _heart(data, time, uid) {
         console.log('收到心跳', data, uid);
         if (data !== uid) return this.close(uid);
+        const client = this.clients.get(uid);
+        client.date = Date.now();
     }
     /**
      * 关闭对应uid的客户端连接
