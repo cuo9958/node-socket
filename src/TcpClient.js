@@ -3,16 +3,26 @@
  */
 const net = require('net');
 const cmd = require('./cmd');
+/**
+ * 重试次数
+ */
+const RETRY_COUNT = 10;
 
 class TcpClient {
     constructor(port, type = 'json') {
-        const socket = net.connect(port);
+        this.port = port;
+        this.type = type;
+        this.init();
+    }
+
+    init() {
+        const socket = net.connect(this.port);
         this.socket = socket;
-        this.cmd = cmd.get(type);
+        this.cmd = cmd.get(this.type);
         this.event = {};
-        this.retry = 5;
         this.timer = null;
         this.uid = '';
+        this.retryCount = RETRY_COUNT;
         socket.setEncoding(this.cmd.encoding);
         socket.on('connect', this.onConnect.bind(this));
         socket.on('data', data => this.onMessage(this.cmd.decode(data)));
@@ -20,9 +30,15 @@ class TcpClient {
         socket.on('error', this.onError.bind(this));
         socket.on('timeout', this.onTimeOut.bind(this));
     }
-
+    retry() {
+        console.log('重试', this, this.retryCount);
+        this.retryCount--;
+        this.socket.destroy();
+        if (this.retryCount < 0) return;
+        this.init();
+    }
     onConnect() {
-        this.retry = 5;
+        this.retryCount = RETRY_COUNT;
         console.log('已连接');
     }
     onMessage(data) {
@@ -38,8 +54,15 @@ class TcpClient {
     onClosed(had_err) {
         console.log('关闭', had_err);
     }
+    /**
+     * 监听到错误的时候出发重试
+     * @param {*} err
+     */
     onError(err) {
         console.log('错误', err);
+        setTimeout(() => {
+            this.retry();
+        }, 3000);
     }
     onTimeOut() {
         console.log('超时');
