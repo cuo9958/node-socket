@@ -137,7 +137,7 @@ export default class NClient {
     private sendToken() {
         this.send("_token", {
             token: this.cfg.token,
-            group: this.cfg.group,s
+            group: this.cfg.group,
         });
     }
     /**
