@@ -1,0 +1,6 @@
+{
+    "verbose": true,
+    "debug": true,
+    "exec": "ts-node  ./test/test_route.ts",
+    "ignore": ["node_modules", "test/*"]
+}
