@@ -7,6 +7,10 @@ import { Command, ICommandData } from "./utils";
 
 interface IClientOpts {
     encoding?: string;
+    /**
+     * 所属房间
+     */
+    group: string;
 }
 interface IClientCfg extends IClientOpts {
     port: number;
@@ -39,6 +43,7 @@ export default class NClient {
         host: "127.0.0.1",
         encoding: "utf8",
         token: "",
+        group: "",
     };
 
     info: IClientInfo = {
@@ -130,7 +135,10 @@ export default class NClient {
      * 发送鉴权申请
      */
     private sendToken() {
-        this.send("_token", this.cfg.token);
+        this.send("_token", {
+            token: this.cfg.token,
+            group: this.cfg.group,s
+        });
     }
     /**
      * 登录成功,设置当前信息
