@@ -3,7 +3,7 @@
  */
 import net from "net";
 import { CronJob } from "cron";
-import { Command, ICommandData } from "./utils";
+import { Command, ICommandData, CommandEnum, CommandGroup } from "./utils";
 
 interface IClientOpts {
     encoding?: string;
@@ -84,7 +84,7 @@ export default class NClient {
     private _heart = () => {
         if (this.info.closed) return;
         console.log("发送心跳");
-        this.send("_heart", "");
+        this.send(CommandEnum.HEART, "");
     };
 
     /**
@@ -124,9 +124,8 @@ export default class NClient {
      */
     private onMessage = (str: string) => {
         const data = Command.decode(str);
-        console.log(str);
         //收到确认消息
-        if (data.command === "_ack") {
+        if (data.command === CommandEnum.ACK) {
             return this.setInfo(data.data);
         }
         this.execRoute(data);
@@ -135,7 +134,7 @@ export default class NClient {
      * 发送鉴权申请
      */
     private sendToken() {
-        this.send("_token", {
+        this.send(CommandEnum.TOKEN, {
             token: this.cfg.token,
             group: this.cfg.group,
         });
@@ -154,6 +153,14 @@ export default class NClient {
      */
     send(command, data) {
         this.socket.write(Command.encode(command, data));
+    }
+    /**
+     * 向同组成员发送命令,不会向自己发送
+     * @param command 命令
+     * @param data 数据
+     */
+    sendGroup(command, data) {
+        this.socket.write(Command.encode(command, data, CommandGroup.GROUP));
     }
     /**
      * 添加对命令的路由内容

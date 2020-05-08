@@ -9,10 +9,11 @@ export const Command = {
      * @param command 命令
      * @param data 数据
      */
-    encode: function (command, data): string {
+    encode: function (command, data, group = ""): string {
         return JSON.stringify({
             command,
             data,
+            group,
             time: Date.now(),
         });
     },
@@ -32,3 +33,29 @@ export const Command = {
         }
     },
 };
+/**
+ * 命令枚举
+ */
+export enum CommandEnum {
+    /**
+     * 鉴权成功回复,服务端发送
+     */
+    ACK = "_ack",
+    /**
+     * token鉴权,客户端发送
+     */
+    TOKEN = "_token",
+    /**
+     * 心跳，双端
+     */
+    HEART = "_heart",
+}
+/**
+ * 组别枚举
+ */
+export enum CommandGroup {
+    /**
+     * 同房间其他人
+     */
+    GROUP = "_group",
+}
