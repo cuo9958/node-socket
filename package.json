@@ -1,6 +1,6 @@
 {
     "name": "node-socket-rpc",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "使用nodejs开发的socket通讯RPC",
     "main": "src/index.ts",
     "scripts": {

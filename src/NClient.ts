@@ -38,7 +38,8 @@ export class NClient {
             }
         }
         this.loger = createLog(this.cfg.debug);
-        this.timer = new CronJob("*/5 * * * * *", this._heart).start();
+        new CronJob("*/5 * * * * *", this._heart).start();
+        new CronJob("0 * * * * *", this._checkCall).start();
     }
 
     cfg: IClientCfg = {
@@ -63,7 +64,7 @@ export class NClient {
      * 内部的socket对象
      */
     private socket: net.Socket | undefined;
-    private timer = null;
+    // private timer = null;
     /**
      * 开始监听远程服务
      * @param port 端口
@@ -236,9 +237,10 @@ export class NClient {
      */
     call(method: string, params?: any): Promise<any> {
         const eventId: string = uuid.v4() + "";
+        this.loger("远程调用", method);
         return new Promise((resolve, reject) => {
             this.send(CommandEnum.CALL, { method, eventId, params });
-            this.callEvents.set(eventId, { resolve, reject });
+            this.callEvents.set(eventId, { resolve, reject, time: Date.now() });
         });
     }
     /**
@@ -257,5 +259,18 @@ export class NClient {
         }
         this.callEvents.delete(eventId);
     }
+    /**
+     * 定时清除超时的调用事件
+     */
+    private _checkCall = () => {
+        const now = Date.now();
+        this.callEvents.forEach((v, k) => {
+            if (now - v.time > 30000) {
+                const promiseData = v;
+                promiseData.reject("等待超时");
+                this.callEvents.delete(k);
+            }
+        });
+    };
 }
 export default NClient;

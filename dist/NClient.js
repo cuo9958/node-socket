@@ -28,7 +28,6 @@ class NClient {
         this.loger = (arg1, arg2, arg3) => { };
         this.events = new Map();
         this.callEvents = new Map();
-        this.timer = null;
         this._heart = () => {
             if (this.info.closed)
                 return;
@@ -74,6 +73,19 @@ class NClient {
             }
             this.execRoute(data);
         };
+        /**
+         * 定时清除超时的调用事件
+         */
+        this._checkCall = () => {
+            const now = Date.now();
+            this.callEvents.forEach((v, k) => {
+                if (now - v.time > 30000) {
+                    const promiseData = v;
+                    promiseData.reject("等待超时");
+                    this.callEvents.delete(k);
+                }
+            });
+        };
         if (opts) {
             for (const key in opts) {
                 const v = opts[key];
@@ -81,8 +93,10 @@ class NClient {
             }
         }
         this.loger = utils_1.createLog(this.cfg.debug);
-        this.timer = new cron_1.CronJob("*/5 * * * * *", this._heart).start();
+        new cron_1.CronJob("*/5 * * * * *", this._heart).start();
+        new cron_1.CronJob("0 * * * * *", this._checkCall).start();
     }
+    // private timer = null;
     /**
      * 开始监听远程服务
      * @param port 端口
@@ -211,9 +225,10 @@ class NClient {
      */
     call(method, params) {
         const eventId = uuid_1.default.v4() + "";
+        this.loger("远程调用", method);
         return new Promise((resolve, reject) => {
             this.send(utils_1.CommandEnum.CALL, { method, eventId, params });
-            this.callEvents.set(eventId, { resolve, reject });
+            this.callEvents.set(eventId, { resolve, reject, time: Date.now() });
         });
     }
     /**
