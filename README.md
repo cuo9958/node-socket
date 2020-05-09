@@ -50,7 +50,8 @@ ct.use("test", async function (data) {
 2. `listen(port = 4000, host?: string)`。启动服务端的监听，传入监听的端口，可选的 hostname。
 3. `notice(uid: string, group: string, data: any)`。主动通知除 uid 之外该房间的所有人。
 4. `sendTo(uid: string, command: string, data?: any)`。给 uid 对应的客户端发送消息。
-5. `sendAll(command: string, data?: any)`。给所有人发送消息
+5. `sendAll(command: string, data?: any)`。给所有人发送消息。
+6. `regMethod(method: string, fn: any)`。注册远程方法。
 
 ## 客户端 API
 
