@@ -3,7 +3,7 @@
  */
 import net from "net";
 import { CronJob } from "cron";
-import { Command, ICommandData, CommandEnum, CommandGroup } from "./utils";
+import { ICommandData, CommandEnum, CommandGroup, ToBuff, ToData } from "./utils";
 
 interface IClientOpts {
     encoding?: string;
@@ -25,9 +25,11 @@ interface IClientInfo {
     uid: string;
     closed: boolean;
     retryCount: number;
+    group: string;
+    connect: boolean;
 }
 
-export default class NClient {
+export class NClient {
     constructor(opts?: IClientOpts) {
         if (opts) {
             for (const key in opts) {
@@ -36,13 +38,14 @@ export default class NClient {
             }
         }
         this.timer = new CronJob("*/5 * * * * *", this._heart).start();
+        this.info.group = this.cfg.group;
     }
 
     cfg: IClientCfg = {
         port: 3000,
         host: "127.0.0.1",
         encoding: "utf8",
-        token: "",
+        token: "test",
         group: "",
     };
 
@@ -50,6 +53,8 @@ export default class NClient {
         uid: "",
         closed: true,
         retryCount: 0,
+        group: "",
+        connect: false,
     };
     events: Map<string, any> = new Map();
     /**
@@ -70,9 +75,10 @@ export default class NClient {
 
     private start() {
         const socket = net.connect(this.cfg.port, this.cfg.host);
-        socket.setEncoding(this.cfg.encoding);
+        // socket.setEncoding(this.cfg.encoding);
+        socket.setKeepAlive(true);
         socket.on("connect", this.onConnect);
-        socket.on("data", (data: string) => this.onMessage(data));
+        socket.on("data", (data: Buffer) => this.onMessage(data));
         socket.on("close", this.onClosed);
         socket.on("error", this.onError);
         socket.on("timeout", this.onTimeOut);
@@ -83,6 +89,9 @@ export default class NClient {
     }
     private _heart = () => {
         if (this.info.closed) return;
+        if (!this.info.connect) {
+            return this.sendToken();
+        }
         console.log("发送心跳");
         this.send(CommandEnum.HEART, "");
     };
@@ -91,6 +100,7 @@ export default class NClient {
      * 重试
      */
     retry() {
+        if (!this.info.closed) return;
         console.log("重试", this.info.retryCount);
         this.info.retryCount++;
         this.clearSocket();
@@ -112,6 +122,7 @@ export default class NClient {
     };
     private onClosed = (had_err: boolean) => {
         console.log("关闭", had_err);
+        this.info.closed = true;
         setTimeout(() => {
             this.retry();
         }, 3000);
@@ -122,8 +133,8 @@ export default class NClient {
     /**
      * 接收到消息
      */
-    private onMessage = (str: string) => {
-        const data = Command.decode(str);
+    private onMessage = (buf: Buffer) => {
+        const data = ToData(buf);
         //收到确认消息
         if (data.command === CommandEnum.ACK) {
             return this.setInfo(data.data);
@@ -134,6 +145,8 @@ export default class NClient {
      * 发送鉴权申请
      */
     private sendToken() {
+        console.log("进行内部鉴权");
+        this.info.connect = false;
         this.send(CommandEnum.TOKEN, {
             token: this.cfg.token,
             group: this.cfg.group,
@@ -145,14 +158,16 @@ export default class NClient {
      */
     private setInfo(data: any) {
         console.log("设置信息", data);
+        this.info.uid = data.uid;
+        this.info.connect = true;
     }
     /**
      * 发送命令和数据
      * @param command 命令
      * @param data 数据
      */
-    send(command, data) {
-        this.socket.write(Command.encode(command, data));
+    send(command, data, group?) {
+        this.socket.write(ToBuff(command, data, group));
     }
     /**
      * 向同组成员发送命令,不会向自己发送
@@ -160,7 +175,14 @@ export default class NClient {
      * @param data 数据
      */
     sendGroup(command, data) {
-        this.socket.write(Command.encode(command, data, CommandGroup.GROUP));
+        this.send(command, data, CommandGroup.GROUP);
+    }
+    /**
+     * 设置房间名称
+     * @param group 房间
+     */
+    setGroup(group: string) {
+        this.info.group = group;
     }
     /**
      * 添加对命令的路由内容
@@ -189,3 +211,4 @@ export default class NClient {
         }
     }
 }
+export default NClient;

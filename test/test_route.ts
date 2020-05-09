@@ -1,4 +1,4 @@
-import NClient from "../src/NClient";
+import { NClient } from "../src/NClient";
 
 const ct = new NClient();
 

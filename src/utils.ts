@@ -1,8 +1,12 @@
 export interface ICommandData {
     command: string;
     data?: any;
+    group?: string;
     time: number;
 }
+/**
+ * 命令json化
+ */
 export const Command = {
     /**
      * 将命令转成字符串
@@ -10,12 +14,15 @@ export const Command = {
      * @param data 数据
      */
     encode: function (command, data, group = ""): string {
-        return JSON.stringify({
+        let obj: any = {
             command,
             data,
-            group,
             time: Date.now(),
-        });
+        };
+        if (group) {
+            obj.group = group;
+        }
+        return JSON.stringify(obj);
     },
     /**
      * 将字符串格式化成命令、数据
@@ -58,4 +65,29 @@ export enum CommandGroup {
      * 同房间其他人
      */
     GROUP = "_group",
+}
+/**
+ * 把命令转成字节
+ * @param command 命令
+ * @param data 数据
+ * @param group 房间组
+ */
+export function ToBuff(command: string, data: any, group?: string): Buffer {
+    const str = Command.encode(command, data, group);
+    const len = Buffer.byteLength(str);
+    const buf = Buffer.alloc(5 + len);
+    buf.writeInt16LE(len, 0);
+    buf.fill(str, 5);
+    return buf;
+}
+/**
+ * 将字节转成对象
+ * @param data 字节
+ */
+export function ToData(data: Buffer): ICommandData {
+    const head = data.slice(0, 5);
+    const len = head.readInt16LE(0);
+    const str = data.slice(5, len + 5).toString();
+    const cmd = Command.decode(str);
+    return cmd;
 }

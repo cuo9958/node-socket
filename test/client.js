@@ -1,11 +1,19 @@
-const { TcpClient } = require('../index');
+const { NClient } = require("../dist/NClient");
 
-const client = TcpClient.factoryTcpClient(18000);
+const ct = new NClient();
 
-client.on('aaa', function(data) {
-    console.log('消息', data);
+ct.listen(18000);
+const sleep = (time) => new Promise((resolve) => setTimeout(() => resolve(), time));
+ct.use("test", async function (data) {
+    console.log("1", data);
+    await sleep(3000);
+    console.log("1_end");
+    return data + 1;
 });
 
-setTimeout(() => {
-    client.send('join', '连接');
-}, 5000);
+// ct.use("test", async function (data) {
+//     console.log("2", data);
+//     await sleep(2000);
+//     console.log("2_end");
+//     return data + 1;
+// });

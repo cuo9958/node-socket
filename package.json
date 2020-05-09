@@ -5,7 +5,8 @@
     "main": "src/index.ts",
     "scripts": {
         "build": "tsc",
-        "test:client": "nodemon --config scripts/test_client.json"
+        "test:client": "nodemon --config scripts/test_client.json",
+        "test:server": "nodemon --config scripts/test_server.json"
     },
     "repository": {
         "type": "git",
