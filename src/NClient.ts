@@ -9,7 +9,8 @@ interface IClientOpts {
     /**
      * 所属房间
      */
-    group: string;
+    group?: string;
+    debug?: boolean;
 }
 interface IClientCfg extends IClientOpts {
     port: number;
@@ -18,7 +19,6 @@ interface IClientCfg extends IClientOpts {
      * 鉴权使用的key
      */
     token: string;
-    debug: boolean;
 }
 
 interface IClientInfo {

@@ -1,6 +1,8 @@
 import { NClient } from "../src/NClient";
 
-const ct = new NClient();
+const ct = new NClient({
+    debug: true,
+});
 
 ct.listen(18000);
 

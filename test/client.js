@@ -1,6 +1,8 @@
 const { NClient } = require("../dist/NClient");
 
-const ct = new NClient();
+const ct = new NClient({
+    debug: true,
+});
 
 ct.listen(18000);
 console.log("监听端口", 18000);
