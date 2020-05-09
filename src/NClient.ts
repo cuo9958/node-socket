@@ -3,10 +3,9 @@
  */
 import net from "net";
 import { CronJob } from "cron";
-import { ICommandData, CommandEnum, CommandGroup, ToBuff, ToData } from "./utils";
+import { ICommandData, CommandEnum, ToBuff, ToData, createLog } from "./utils";
 
 interface IClientOpts {
-    encoding?: string;
     /**
      * 所属房间
      */
@@ -19,13 +18,13 @@ interface IClientCfg extends IClientOpts {
      * 鉴权使用的key
      */
     token: string;
+    debug: boolean;
 }
 
 interface IClientInfo {
     uid: string;
     closed: boolean;
     retryCount: number;
-    group: string;
     connect: boolean;
 }
 
@@ -37,15 +36,15 @@ export class NClient {
                 this.cfg[key] = v;
             }
         }
+        this.loger = createLog(this.cfg.debug);
         this.timer = new CronJob("*/5 * * * * *", this._heart).start();
-        this.info.group = this.cfg.group;
     }
 
     cfg: IClientCfg = {
+        debug: false,
         port: 3000,
         host: "127.0.0.1",
-        encoding: "utf8",
-        token: "test",
+        token: "",
         group: "",
     };
 
@@ -53,15 +52,16 @@ export class NClient {
         uid: "",
         closed: true,
         retryCount: 0,
-        group: "",
         connect: false,
     };
-    events: Map<string, any> = new Map();
+    private loger = (arg1: any, arg2?: any, arg3?: any) => {};
+    private noticeEvent: any;
+    private events: Map<string, any> = new Map();
     /**
      * 内部的socket对象
      */
-    socket: net.Socket | undefined;
-    timer = null;
+    private socket: net.Socket | undefined;
+    private timer = null;
     /**
      * 开始监听远程服务
      * @param port 端口
@@ -75,7 +75,6 @@ export class NClient {
 
     private start() {
         const socket = net.connect(this.cfg.port, this.cfg.host);
-        // socket.setEncoding(this.cfg.encoding);
         socket.setKeepAlive(true);
         socket.on("connect", this.onConnect);
         socket.on("data", (data: Buffer) => this.onMessage(data));
@@ -92,7 +91,7 @@ export class NClient {
         if (!this.info.connect) {
             return this.sendToken();
         }
-        console.log("发送心跳");
+        this.loger("发送心跳");
         this.send(CommandEnum.HEART, "");
     };
 
@@ -101,7 +100,7 @@ export class NClient {
      */
     retry() {
         if (!this.info.closed) return;
-        console.log("重试", this.info.retryCount);
+        this.loger("重试", this.info.retryCount);
         this.info.retryCount++;
         this.clearSocket();
         this.start();
@@ -112,23 +111,23 @@ export class NClient {
         this.socket.destroy();
     }
     private onConnect = () => {
-        console.log("已连接");
+        this.loger("已连接");
         this.info.closed = false;
         this.info.retryCount = 0;
         this.sendToken();
     };
     private onError = (err: Error) => {
-        console.log("错误", err);
+        this.loger("错误", err);
     };
     private onClosed = (had_err: boolean) => {
-        console.log("关闭", had_err);
+        this.loger("关闭", had_err);
         this.info.closed = true;
         setTimeout(() => {
             this.retry();
         }, 3000);
     };
     private onTimeOut = () => {
-        console.log("超时");
+        this.loger("超时");
     };
     /**
      * 接收到消息
@@ -139,13 +138,16 @@ export class NClient {
         if (data.command === CommandEnum.ACK) {
             return this.setInfo(data.data);
         }
+        if (data.command === CommandEnum.NOTICE) {
+            return this._execNotice(data.data);
+        }
         this.execRoute(data);
     };
     /**
      * 发送鉴权申请
      */
     private sendToken() {
-        console.log("进行内部鉴权");
+        this.loger("进行内部鉴权");
         this.info.connect = false;
         this.send(CommandEnum.TOKEN, {
             token: this.cfg.token,
@@ -157,7 +159,7 @@ export class NClient {
      * @param data 数据
      */
     private setInfo(data: any) {
-        console.log("设置信息", data);
+        this.loger("设置信息", data);
         this.info.uid = data.uid;
         this.info.connect = true;
     }
@@ -166,30 +168,29 @@ export class NClient {
      * @param command 命令
      * @param data 数据
      */
-    send(command, data, group?) {
+    send(command: string, data: any, group?) {
         this.socket.write(ToBuff(command, data, group));
     }
     /**
      * 向同组成员发送命令,不会向自己发送
-     * @param command 命令
      * @param data 数据
      */
-    sendGroup(command, data) {
-        this.send(command, data, CommandGroup.GROUP);
+    sendGroup(data: any) {
+        this.send(CommandEnum.NOTICE, data, this.cfg.group);
     }
     /**
      * 设置房间名称
      * @param group 房间
      */
     setGroup(group: string) {
-        this.info.group = group;
+        this.cfg.group = group;
     }
     /**
      * 添加对命令的路由内容
      * @param routeName 路由名
      * @param fn 执行方法
      */
-    use(routeName, fn) {
+    use(routeName: string, fn: any) {
         const list: any[] = this.events.get(routeName) || [];
         list.push(fn);
         this.events.set(routeName, list);
@@ -209,6 +210,20 @@ export class NClient {
         if (list.length > 0) {
             await this.execFn(list, data2);
         }
+    }
+    /**
+     * 收到通知消息
+     * @param data 数据
+     */
+    private _execNotice(data: any) {
+        this.noticeEvent && this.noticeEvent(data);
+    }
+    /**
+     * 设置收到通知之后的回调
+     * @param fn 方法
+     */
+    onNotice(fn: any) {
+        this.noticeEvent = fn;
     }
 }
 export default NClient;

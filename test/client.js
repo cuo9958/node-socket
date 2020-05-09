@@ -3,6 +3,7 @@ const { NClient } = require("../dist/NClient");
 const ct = new NClient();
 
 ct.listen(18000);
+console.log("监听端口", 18000);
 const sleep = (time) => new Promise((resolve) => setTimeout(() => resolve(), time));
 ct.use("test", async function (data) {
     console.log("1", data);

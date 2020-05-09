@@ -3,6 +3,7 @@ import { NClient } from "../src/NClient";
 const ct = new NClient();
 
 ct.listen(18000);
+
 const sleep = (time: number) => new Promise((resolve) => setTimeout(() => resolve(), time));
 ct.use("test", async function (data) {
     console.log("1", data);

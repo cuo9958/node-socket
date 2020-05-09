@@ -53,19 +53,15 @@ export enum CommandEnum {
      */
     TOKEN = "_token",
     /**
-     * 心跳，双端
+     * 心跳,双端
      */
     HEART = "_heart",
-}
-/**
- * 组别枚举
- */
-export enum CommandGroup {
     /**
-     * 同房间其他人
+     * 房间的通知消息,双端
      */
-    GROUP = "_group",
+    NOTICE = "_notice",
 }
+
 /**
  * 把命令转成字节
  * @param command 命令
@@ -90,4 +86,17 @@ export function ToData(data: Buffer): ICommandData {
     const str = data.slice(5, len + 5).toString();
     const cmd = Command.decode(str);
     return cmd;
+}
+/**
+ * 自定义日志
+ * @param debug 开关
+ */
+export function createLog(debug: boolean) {
+    if (debug) {
+        return function (...args) {
+            console.log(...args);
+        };
+    } else {
+        return function () {};
+    }
 }

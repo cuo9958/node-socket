@@ -3,10 +3,12 @@
  */
 import net from "net";
 import uuid from "uuid";
-import { ICommandData, CommandEnum, CommandGroup, ToBuff, ToData } from "./utils";
+import { CronJob } from "cron";
+import { ICommandData, CommandEnum, ToBuff, ToData, createLog } from "./utils";
 
 interface IServerCfg {
-    token: string;
+    token?: string;
+    debug?: boolean;
 }
 interface ICheckToken {
     token: string;
@@ -19,85 +21,115 @@ export default class NServer {
                 this.cfg[key] = v;
             }
         }
+        this.loger = createLog(this.cfg.debug);
+        this.timer = new CronJob("*/5 * * * * *", this._checks).start();
     }
+
     cfg: IServerCfg = {
-        token: "test",
+        debug: false,
+        token: "",
     };
-    server: net.Server | undefined;
-    preClients: Map<string, OneClient> = new Map();
-    clients: Map<string, OneClient> = new Map();
-    listen(port = 4000) {
+    private loger = (arg1: any, arg2?: any, arg3?: any) => {};
+    //定时任务
+    private timer: any;
+    //服务端实例
+    private server: net.Server | undefined;
+    //预加载客户端队列
+    private preClients: Map<string, OneClient> = new Map();
+    //客户端队列
+    private clients: Map<string, OneClient> = new Map();
+    /**
+     * 启动监听
+     * @param port 端口
+     * @param host ip
+     */
+    listen(port = 4000, host?: string) {
         const server = net.createServer();
         server.on("listening", this.onConnect);
         server.on("error", this.onError);
         server.on("close", this.onClose);
         server.on("connection", this.onConnection);
-        server.listen(port);
-        console.log("完成监听", port);
+        server.listen(port, host);
+        this.loger("完成监听", port);
         this.server = server;
     }
-
-    onConnect = () => {
+    /**
+     * 建立新的连接时
+     */
+    private onConnect = () => {
         if (this.server) {
             const addr = this.server.address();
-            console.log("监听开始，端口", typeof addr === "string" ? addr : addr.port);
+            this.loger("监听开始，端口", typeof addr === "string" ? addr : addr.port);
         }
     };
     /**
      * 错误处理
      * @param {*} error err
      */
-    onError = (error) => {
-        console.log("tcp服务错误", error);
+    private onError = (error) => {
+        this.loger("tcp服务错误", error);
     };
     /**
      * 关闭tcp服务，一般没啥用
      */
-    onClose = () => {
-        console.log("关闭tcp服务");
+    private onClose = () => {
+        this.loger("关闭tcp服务");
     };
     /**
      * 客户端消息连接
      * @param {*} socket
      */
-    onConnection = (socket: net.Socket) => {
+    private onConnection = (socket: net.Socket) => {
         if (!this.server) return;
         this._pushClient(socket);
-        this.server.getConnections(function (err: Error, count: number) {
+        this.server.getConnections((err: Error, count: number) => {
             if (!err) {
-                console.log("现有客户端连接", count);
+                this.loger("现有客户端连接", count);
             }
         });
     };
-    _pushClient(socket: net.Socket) {
+    /**
+     * 处理新加入的客户端
+     * @param socket 客户端实例
+     */
+    private _pushClient(socket: net.Socket) {
         const client = new OneClient(socket);
         socket.on("close", () => this.onClientClose(client.uid));
         client.setMessage((uid: string, data: ICommandData) => this.onMessage(uid, data));
         this.preClients.set(client.uid, client);
-        console.log("客户端连接", client.uid);
+        this.loger("客户端连接", client.uid);
     }
     /**
      * 收到客户端的消息
      * @param data buffer
      */
-    onMessage(uid, data: ICommandData) {
-        console.log("收到消息", data);
+    private onMessage(uid, data: ICommandData) {
+        this.loger("收到消息", data);
+        if (data.command === CommandEnum.HEART) return;
+
         if (data.command === CommandEnum.TOKEN) {
             return this.checkToken(uid, data.data);
         }
-        if (data.command === CommandEnum.HEART) return;
+        if (data.command === CommandEnum.NOTICE) {
+            return this.notice(uid, data.group, data.data);
+        }
     }
     /**
      * 去掉客户端
      * @param uid uid
      */
-    onClientClose(uid: string) {
+    private onClientClose(uid: string) {
         this.clients.delete(uid);
         this.preClients.delete(uid);
     }
+    /**
+     * 检查token的合法性
+     * @param uid uid
+     * @param data 数据
+     */
     private checkToken(uid: string, data: ICheckToken) {
         if (this.cfg.token === data.token) {
-            console.log("鉴权", data);
+            this.loger("鉴权", data);
             this.readClient(uid);
             this.sendTo(uid, CommandEnum.ACK, { uid });
         } else {
@@ -116,6 +148,17 @@ export default class NServer {
         }
     }
     /**
+     * 检查客户端健康
+     */
+    _checks = () => {
+        const now = Date.now();
+        this.clients.forEach((client) => {
+            if (now - client.date > 10000) {
+                client.end();
+            }
+        });
+    };
+    /**
      * 给对应的客户端发送数据
      * @param uid uid
      * @param command 命令
@@ -125,8 +168,47 @@ export default class NServer {
         const client = this.clients.get(uid);
         client.send(command, data);
     }
+    /**
+     * 给除uid之外的所有人发送消息
+     * @param uid uid
+     * @param command 命令
+     * @param data 数据
+     */
+    sendNot(uid: string, command: string, data?: any) {
+        this.clients.forEach((client) => {
+            if (client.uid !== uid) {
+                client.send(command, data);
+            }
+        });
+    }
+    /**
+     * 发送消息
+     * @param command 命令
+     * @param data 数据
+     */
+    sendAll(command: string, data?: any) {
+        this.clients.forEach((client) => {
+            client.send(command, data);
+        });
+    }
+    /**
+     * 通知房间下，除uid之外的所有人
+     * @param uid uid
+     * @param group 房间
+     * @param data 数据
+     */
+    notice(uid: string, group: string, data: any) {
+        if (!group) return;
+        this.clients.forEach((client) => {
+            if (client.uid !== uid && client.group === group) {
+                client.send(CommandEnum.NOTICE, data);
+            }
+        });
+    }
 }
-
+/**
+ * 单独的客户端管理类
+ */
 class OneClient {
     constructor(socket: net.Socket) {
         this.uid = uuid.v4();
@@ -138,10 +220,10 @@ class OneClient {
     date: number;
     uid: string;
     group: string;
-    socket: net.Socket;
+    private socket: net.Socket;
 
-    msgEvent: any;
-    onMessage(data: Buffer) {
+    private msgEvent: any;
+    private onMessage(data: Buffer) {
         this.date = Date.now();
         const cmd = ToData(data);
         if (cmd.group) {
@@ -152,6 +234,16 @@ class OneClient {
     setMessage(fn: any) {
         this.msgEvent = fn;
     }
+
+    /**
+     * 收到token消息
+     */
+    ack() {
+        this.send(CommandEnum.ACK, this.uid);
+    }
+    end() {
+        this.socket.end();
+    }
     /**
      * 发送字节数据
      * @param command 命令
@@ -160,9 +252,4 @@ class OneClient {
     send(command: string, data: any) {
         this.socket.write(ToBuff(command, data));
     }
-
-    ack() {
-        this.send(CommandEnum.ACK, this.uid);
-    }
-    end() {}
 }

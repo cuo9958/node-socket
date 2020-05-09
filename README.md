@@ -40,6 +40,26 @@ ct.use("test", async function (data) {
 });
 ```
 
+## 服务端 API
+
+1. `cfg`。服务端的配置，保存了使用到的配置内容。
+2. `listen(port = 4000, host?: string)`。启动服务端的监听，传入监听的端口，可选的 hostname。
+3. `notice(uid: string, group: string, data: any)`。主动通知除 uid 之外该房间的所有人。
+4. `sendTo(uid: string, command: string, data?: any)`。给 uid 对应的客户端发送消息。
+5. `sendAll(command: string, data?: any)`。给所有人发送消息
+
+## 客户端 API
+
+1. `cfg`。配置信息。
+2. `info`。当前状态信息
+3. `listen(port = 3000, host?: string)`。启动监听服务。
+4. `retry`。重新连接服务端。
+5. `send(command, data, group?)`。发送消息。
+6. `sendGroup(data:any)`。给房间群组发送消息。
+7. `setGroup(group: string)`。设置房间/群组的名称
+8. `onNotice(fn: any)`。当收到群体通知的时候。
+9. `use(routeName:string, fn:any)`。路由事件。
+
 ## 包含的功能
 
 1. 客户端/服务端创建
@@ -48,4 +68,4 @@ ct.use("test", async function (data) {
 4. 路由
 5. 组/房间标记
 6. 双队列服务，标记准备中和准备好的客户端
-7. 客户端发送消息到客户端
+7. 客户端发送消息到客户端，发送房间消息
