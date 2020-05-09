@@ -13,7 +13,7 @@ interface IServerCfg {
 interface ICheckToken {
     token: string;
 }
-export default class NServer {
+export class NServer {
     constructor(opts?: IServerCfg) {
         if (opts) {
             for (const key in opts) {
@@ -38,6 +38,8 @@ export default class NServer {
     private preClients: Map<string, OneClient> = new Map();
     //客户端队列
     private clients: Map<string, OneClient> = new Map();
+    //注册的方法
+    private callEvents: Map<string, any> = new Map();
     /**
      * 启动监听
      * @param port 端口
@@ -112,6 +114,9 @@ export default class NServer {
         }
         if (data.command === CommandEnum.NOTICE) {
             return this.notice(uid, data.group, data.data);
+        }
+        if (data.command === CommandEnum.CALL) {
+            return this.onCall(uid, data.data);
         }
     }
     /**
@@ -205,6 +210,60 @@ export default class NServer {
             }
         });
     }
+    /**
+     * 当客户端要远程调用服务端注册的方法的时候
+     * @param data 数据
+     */
+    private async onCall(uid: string, data: ICallData) {
+        const method = data.method;
+        const eventId = data.eventId;
+        const params = data.params;
+        if (!method || !eventId) return;
+        const fn = this.callEvents.get(method);
+        if (!fn) {
+            return this.callBack(uid, eventId, null, "方法不存在");
+        }
+        try {
+            const res = await fn(params);
+            this.callBack(uid, eventId, res);
+        } catch (error) {
+            this.callBack(uid, eventId, null, error.message);
+        }
+    }
+    /**
+     * 调起回调方法
+     * @param uid uid
+     * @param eventId 事件id
+     * @param success 成功结果
+     * @param error 失败结果
+     */
+    private callBack(uid: string, eventId: string, success: any, error?: any) {
+        if (error) {
+            this.sendTo(uid, CommandEnum.CALL, {
+                eventId,
+                error,
+            });
+        } else {
+            this.sendTo(uid, CommandEnum.CALL, {
+                eventId,
+                success,
+            });
+        }
+    }
+    /**
+     * 注册方法
+     * @param method 方法名
+     * @param fn 方法
+     */
+    regMethod(method: string, fn: any) {
+        this.callEvents.set(method, fn);
+    }
+}
+export default NServer;
+interface ICallData {
+    method: string;
+    eventId: string;
+    params?: any;
 }
 /**
  * 单独的客户端管理类

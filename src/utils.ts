@@ -60,6 +60,10 @@ export enum CommandEnum {
      * 房间的通知消息,双端
      */
     NOTICE = "_notice",
+    /**
+     * 远程调用方法
+     */
+    CALL = "_call",
 }
 
 /**
@@ -99,4 +103,10 @@ export function createLog(debug: boolean) {
     } else {
         return function () {};
     }
+}
+
+export interface ICallBackData {
+    eventId: string;
+    success?: any;
+    error?: any;
 }

@@ -58,6 +58,10 @@ var CommandEnum;
      * 房间的通知消息,双端
      */
     CommandEnum["NOTICE"] = "_notice";
+    /**
+     * 远程调用方法
+     */
+    CommandEnum["CALL"] = "_call";
 })(CommandEnum = exports.CommandEnum || (exports.CommandEnum = {}));
 /**
  * 把命令转成字节

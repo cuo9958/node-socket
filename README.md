@@ -2,6 +2,10 @@
 
 使用 nodejs 开发的 socket 通讯,目前支持 tcp 协议。
 
+支持客户端监听服务端的通知、事件。使用路由方式在客户端监听。
+
+支持远程调用。服务端注册方法，客户端调用方法即可。
+
 ## 功能
 
 1. tcp 的 server 和 client 互相发送消息
@@ -59,6 +63,7 @@ ct.use("test", async function (data) {
 7. `setGroup(group: string)`。设置房间/群组的名称
 8. `onNotice(fn: any)`。当收到群体通知的时候。
 9. `use(routeName:string, fn:any)`。路由事件。
+10. `call(method: string)`。远程调用方法
 
 ## 包含的功能
 
@@ -69,3 +74,4 @@ ct.use("test", async function (data) {
 5. 组/房间标记
 6. 双队列服务，标记准备中和准备好的客户端
 7. 客户端发送消息到客户端，发送房间消息
+8. 远程调用。服务端注册方法，客户端调用

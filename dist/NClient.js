@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 const net_1 = __importDefault(require("net"));
 const cron_1 = require("cron");
+const uuid_1 = __importDefault(require("uuid"));
 const utils_1 = require("./utils");
 class NClient {
     constructor(opts) {
@@ -26,6 +27,7 @@ class NClient {
         };
         this.loger = (arg1, arg2, arg3) => { };
         this.events = new Map();
+        this.callEvents = new Map();
         this.timer = null;
         this._heart = () => {
             if (this.info.closed)
@@ -66,6 +68,9 @@ class NClient {
             }
             if (data.command === utils_1.CommandEnum.NOTICE) {
                 return this._execNotice(data.data);
+            }
+            if (data.command === utils_1.CommandEnum.CALL) {
+                return this._callBack(data.data);
             }
             this.execRoute(data);
         };
@@ -199,6 +204,36 @@ class NClient {
      */
     onNotice(fn) {
         this.noticeEvent = fn;
+    }
+    /**
+     * 远程调用
+     * @param method 方法名
+     */
+    call(method, params) {
+        const eventId = uuid_1.default.v4() + "";
+        return new Promise((resolve, reject) => {
+            this.send(utils_1.CommandEnum.CALL, { method, eventId, params });
+            this.callEvents.set(eventId, { resolve, reject });
+        });
+    }
+    /**
+     * 远程调用的回调
+     * @param data 数据
+     */
+    _callBack(data) {
+        const eventId = data.eventId;
+        if (!eventId)
+            return;
+        const promiseData = this.callEvents.get(eventId);
+        if (!promiseData)
+            return;
+        if (data.error) {
+            promiseData.reject(data.error);
+        }
+        else {
+            promiseData.resolve(data.success);
+        }
+        this.callEvents.delete(eventId);
     }
 }
 exports.NClient = NClient;

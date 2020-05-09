@@ -3,7 +3,8 @@
  */
 import net from "net";
 import { CronJob } from "cron";
-import { ICommandData, CommandEnum, ToBuff, ToData, createLog } from "./utils";
+import uuid from "uuid";
+import { ICommandData, CommandEnum, ToBuff, ToData, createLog, ICallBackData } from "./utils";
 
 interface IClientOpts {
     /**
@@ -57,6 +58,7 @@ export class NClient {
     private loger = (arg1: any, arg2?: any, arg3?: any) => {};
     private noticeEvent: any;
     private events: Map<string, any> = new Map();
+    private callEvents: Map<string, any> = new Map();
     /**
      * 内部的socket对象
      */
@@ -141,6 +143,9 @@ export class NClient {
         if (data.command === CommandEnum.NOTICE) {
             return this._execNotice(data.data);
         }
+        if (data.command === CommandEnum.CALL) {
+            return this._callBack(data.data);
+        }
         this.execRoute(data);
     };
     /**
@@ -224,6 +229,33 @@ export class NClient {
      */
     onNotice(fn: any) {
         this.noticeEvent = fn;
+    }
+    /**
+     * 远程调用
+     * @param method 方法名
+     */
+    call(method: string, params?: any): Promise<any> {
+        const eventId: string = uuid.v4() + "";
+        return new Promise((resolve, reject) => {
+            this.send(CommandEnum.CALL, { method, eventId, params });
+            this.callEvents.set(eventId, { resolve, reject });
+        });
+    }
+    /**
+     * 远程调用的回调
+     * @param data 数据
+     */
+    private _callBack(data: ICallBackData) {
+        const eventId = data.eventId;
+        if (!eventId) return;
+        const promiseData = this.callEvents.get(eventId);
+        if (!promiseData) return;
+        if (data.error) {
+            promiseData.reject(data.error);
+        } else {
+            promiseData.resolve(data.success);
+        }
+        this.callEvents.delete(eventId);
     }
 }
 export default NClient;

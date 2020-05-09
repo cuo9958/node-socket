@@ -21,6 +21,8 @@ class NServer {
         this.preClients = new Map();
         //客户端队列
         this.clients = new Map();
+        //注册的方法
+        this.callEvents = new Map();
         /**
          * 建立新的连接时
          */
@@ -117,6 +119,9 @@ class NServer {
         if (data.command === utils_1.CommandEnum.NOTICE) {
             return this.notice(uid, data.group, data.data);
         }
+        if (data.command === utils_1.CommandEnum.CALL) {
+            return this.onCall(uid, data.data);
+        }
     }
     /**
      * 去掉客户端
@@ -200,7 +205,59 @@ class NServer {
             }
         });
     }
+    /**
+     * 当客户端要远程调用服务端注册的方法的时候
+     * @param data 数据
+     */
+    async onCall(uid, data) {
+        const method = data.method;
+        const eventId = data.eventId;
+        const params = data.params;
+        if (!method || !eventId)
+            return;
+        const fn = this.callEvents.get(method);
+        if (!fn) {
+            return this.callBack(uid, eventId, null, "方法不存在");
+        }
+        try {
+            const res = await fn(params);
+            this.callBack(uid, eventId, res);
+        }
+        catch (error) {
+            this.callBack(uid, eventId, null, error.message);
+        }
+    }
+    /**
+     * 调起回调方法
+     * @param uid uid
+     * @param eventId 事件id
+     * @param success 成功结果
+     * @param error 失败结果
+     */
+    callBack(uid, eventId, success, error) {
+        if (error) {
+            this.sendTo(uid, utils_1.CommandEnum.CALL, {
+                eventId,
+                error,
+            });
+        }
+        else {
+            this.sendTo(uid, utils_1.CommandEnum.CALL, {
+                eventId,
+                success,
+            });
+        }
+    }
+    /**
+     * 注册方法
+     * @param method 方法名
+     * @param fn 方法
+     */
+    regMethod(method, fn) {
+        this.callEvents.set(method, fn);
+    }
 }
+exports.NServer = NServer;
 exports.default = NServer;
 /**
  * 单独的客户端管理类
